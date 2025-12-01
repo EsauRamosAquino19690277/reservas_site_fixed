@@ -1,0 +1,100 @@
+<!doctype html><html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= title %> · <%= site.title %></title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/styles.css" rel="stylesheet">
+<style>:root{ --brand-green:<%= site.navbar_color || '#1b8f3a' %>; }</style>
+</head><body>
+<nav class="navbar navbar-expand-lg">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+      <% if(site.logo_url){ %><img src="<%= site.logo_url %>" class="brand-logo me-2" alt="Logo"><% } else { %><strong><%= site.title %></strong><% } %>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="nav">
+    </div>
+  </div>
+</nav>
+<main class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Publicaciones de experiencias (pendientes)</h3>
+    <div class="d-flex gap-2">
+      <a href="/admin/experiencias/historial" class="btn btn-outline-secondary btn-sm">Ver historial</a>
+      <a href="/admin" class="btn btn-outline-secondary btn-sm">Volver al panel</a>
+    </div>
+  </div>
+
+  <% if (!list.length) { %>
+    <div class="alert alert-info">No hay publicaciones pendientes por aprobar.</div>
+  <% } else { %>
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Título</th>
+          <th>Actividad</th>
+          <th>Media</th>
+          <th>Estado</th>
+          <th style="width:160px;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% list.forEach(function(e){ %>
+          <tr>
+            <td><%= dayjs(e.created_at).format('DD/MM/YYYY HH:mm') %></td>
+            <td><%= e.title %></td>
+            <td><%= e.activity_name || '-' %></td>
+            <td>
+              <% if (e.media_url) { %>
+                <a href="<%= e.media_url %>" target="_blank" class="btn btn-sm btn-outline-secondary">Ver</a>
+                <a href="<%= e.media_url %>" download class="btn btn-sm btn-outline-primary ms-1">Descargar</a>
+              <% } else { %>
+                <span class="text-muted">Sin archivo</span>
+              <% } %>
+            </td>
+            <td><span class="badge bg-secondary"><%= e.status %></span></td>
+            <td>
+              <div class="d-flex gap-1">
+                <form method="post" action="/admin/experiencias/<%= e.id %>/aprobar">
+                  <button class="btn btn-sm btn-success" onclick="return confirm('¿Aprobar esta publicación?')">Aprobar</button>
+                </form>
+                <form method="post" action="/admin/experiencias/<%= e.id %>/rechazar">
+                  <button class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Rechazar esta publicación?')">Rechazar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="6">
+              <strong>Descripción:</strong>
+              <div style="white-space:pre-wrap"><%= e.body %></div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <%- include('pagination', { pagination: pagination }) %>
+  <% } %>
+
+</main>
+<footer class="site-footer text-white mt-4" style="background:var(--brand-green);">
+  <div class="container py-3">
+    <div class="row g-3 align-items-center">
+      <div class="col-md-6 d-flex align-items-center gap-3">
+        <% if (site.logo_url) { %>
+          <a href="/" class="d-inline-block"><img src="<%= site.logo_url %>" alt="Logo" style="height:40px"></a>
+        <% } else { %>
+          <strong><%= site.title %></strong>
+        <% } %>
+        <div class="small">
+          <% if (site.phone) { %><strong>Tel:</strong> <%= site.phone %><% } %><br>
+          <span class="text-white-50">
+            <%= site.privacy_text || '© Todos los derechos reservados.' %>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body></html>

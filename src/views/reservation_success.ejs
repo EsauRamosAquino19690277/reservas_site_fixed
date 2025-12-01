@@ -1,0 +1,163 @@
+<!doctype html><html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= title %> · <%= site.title %></title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/styles.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/header.css">
+</head><body>
+<header class="header">
+  <div class="topbar py-2" style="background:<%= site.navbar_color || '#1b8f3a' %>;">
+    <div class="container d-flex align-items-center justify-content-between">
+      <a href="/" class="d-flex align-items-center text-white text-decoration-none">
+        <% if(site.logo_url){ %>
+          <img src="<%= site.logo_url %>" class="brand-logo me-2" alt="Logo">
+        <% } else { %>
+          <strong class="fs-4 text-white m-0"><%= site.title %></strong>
+        <% } %>
+      </a>
+      <div class="d-flex align-items-center gap-3">
+        <div class="d-none d-md-flex align-items-center gap-2">
+          <% if(site.facebook_url){ %><a class="text-white fs-5" href="<%= site.facebook_url %>" target="_blank" aria-label="Facebook"><i class="bi bi-facebook"></i></a><% } %>
+          <% if(site.instagram_url){ %><a class="text-white fs-5" href="<%= site.instagram_url %>" target="_blank" aria-label="Instagram"><i class="bi bi-instagram"></i></a><% } %>
+          <% if(site.tiktok_url){ %><a class="text-white fs-5" href="<%= site.tiktok_url %>" target="_blank" aria-label="TikTok"><i class="bi bi-tiktok"></i></a><% } %>
+          <% if(site.phone){ %><span class="text-white fw-bold ms-2"><%= site.phone %></span><% } %>
+        </div>
+        <a href="/actividades" class="btn reserve-btn">RESERVAR</a>
+        <button class="navbar-toggler d-inline d-md-none btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#mainMenu" aria-label="Abrir menú">
+          <i class="bi bi-list fs-2 text-white"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="menubar">
+    <div class="container">
+      <nav class="navbar navbar-expand-md navbar-light p-0">
+        <div class="collapse navbar-collapse" id="mainMenu">
+          <ul class="navbar-nav me-auto mb-2 mb-md-0">
+            <li class="nav-item"><a class="nav-link" href="/">HOME</a></li>
+            <li class="nav-item"><a class="nav-link" href="/actividades">ACTIVIDADES</a></li>
+            <li class="nav-item"><a class="nav-link" href="/experiencias">EXPERIENCIAS</a></li>
+            <li class="nav-item"><a class="nav-link" href="/historia">HISTORIA</a></li>
+            <li class="nav-item"><a class="nav-link" href="/contacto">¿CÓMO LLEGAR?</a></li>
+            <li class="nav-item"><a class="nav-link" href="/publicaciones">PROMOCIONES</a></li>
+            <li class="nav-item"><a class="nav-link" href="/mis-reservas">MIS RESERVAS</a></li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<main class="container my-4">
+  <div class="alert alert-success">
+    <h4 class="mb-2">¡Reserva creada!</h4>
+    <p class="mb-0"><strong>Por favor, toma una <u>captura de pantalla</u></strong> de esta página; te servirá como comprobante al llegar.</p>
+  </div>
+
+  <h3 class="mb-3">Resumen de reserva</h3>
+  <dl class="row">
+    <dt class="col-sm-3">Código de reserva</dt>
+    <dd class="col-sm-9"><code><%= r.id %></code></dd>
+
+    <dt class="col-sm-3">Actividad</dt>
+    <dd class="col-sm-9"><%= act?.name %></dd>
+
+    <dt class="col-sm-3">Horario</dt>
+    <dd class="col-sm-9"><%= dayjs(slot?.start_at).format('DD/MM/YYYY HH:mm') %> - <%= dayjs(slot?.end_at).format('HH:mm') %></dd>
+
+    <dt class="col-sm-3">Titular</dt>
+    <dd class="col-sm-9"><%= r.holder_name %></dd>
+
+    <dt class="col-sm-3">Teléfono (pase)</dt>
+    <dd class="col-sm-9"><%= r.phone %></dd>
+
+    <dt class="col-sm-3">Personas</dt>
+    <dd class="col-sm-9"><%= r.party_size %></dd>
+
+    <dt class="col-sm-3">Total</dt>
+    <dd class="col-sm-9">$ <%= (r.amount_cents/100).toFixed(2) %> MXN</dd>
+  </dl>
+
+  <h5 class="mt-4">Datos para el depósito</h5>
+  <dl class="row">
+    <dt class="col-sm-3">Banco</dt>
+    <dd class="col-sm-9"><%= site.bank_name || 'Pendiente de configurar' %></dd>
+
+    <dt class="col-sm-3">Cuenta</dt>
+    <dd class="col-sm-9"><%= site.bank_account || 'Pendiente de configurar' %></dd>
+
+    <dt class="col-sm-3">Referencia</dt>
+    <dd class="col-sm-9"><%= r.phone %></dd>
+
+    <dt class="col-sm-3">Cantidad a depositar</dt>
+    <dd class="col-sm-9">$ <%= (r.amount_cents/100).toFixed(2) %> MXN</dd>
+  </dl>
+
+  <% if (Array.isArray(members) && members.length) { %>
+    <h5 class="mt-4">Personas registradas</h5>
+    <div class="table-responsive">
+      <table class="table table-sm">
+        <thead><tr><th>#</th><th>Nombre</th><th>Ap. paterno</th><th>Ap. materno</th><th>Rango de edad</th></tr></thead>
+        <tbody>
+          <% members.forEach((m,i)=>{ %>
+            <tr>
+              <td><%= i+1 %></td>
+              <td><%= m.first_name %></td>
+              <td><%= m.last_name_p %></td>
+              <td><%= m.last_name_m %></td>
+              <td><%= m.age_range %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+
+  <p class="mt-3 text-muted">
+    Presenta tu pase con tu <strong>número telefónico</strong> y el <strong>código de reserva</strong> al llegar.
+  </p>
+
+  <a href="/mis-reservas" class="btn btn-outline-secondary">Ver mis reservas</a>
+</main>
+
+<!-- Footer global -->
+<footer class="site-footer text-white mt-auto" style="background:<%= site.navbar_color || '#1b8f3a' %>;">
+  <div class="container py-3">
+    <div class="row g-3 align-items-center">
+      <div class="col-md-6 d-flex align-items-center gap-3">
+        <% if (site.logo_url) { %>
+          <a href="/" class="d-inline-block"><img src="<%= site.logo_url %>" alt="Logo" style="height:40px"></a>
+        <% } else { %>
+          <strong><%= site.title %></strong>
+        <% } %>
+        <div class="small">
+          <% if (site.phone) { %><strong>Tel:</strong> <%= site.phone %><% } %><br>
+          <span class="text-white-50">
+            <%= site.privacy_text || '© Todos los derechos reservados. Privacidad: tus datos se usan solo para gestionar reservas.' %>
+          </span>
+        </div>
+      </div>
+      <div class="col-md-6 text-md-end">
+        <% if (site.facebook_url) { %>
+          <a class="text-white fs-5 me-3" href="<%= site.facebook_url %>" target="_blank" aria-label="Facebook">
+            <i class="bi bi-facebook"></i>
+          </a>
+        <% } %>
+        <% if (site.instagram_url) { %>
+          <a class="text-white fs-5 me-3" href="<%= site.instagram_url %>" target="_blank" aria-label="Instagram">
+            <i class="bi bi-instagram"></i>
+          </a>
+        <% } %>
+        <% if (site.tiktok_url) { %>
+          <a class="text-white fs-5" href="<%= site.tiktok_url %>" target="_blank" aria-label="TikTok">
+            <i class="bi bi-tiktok"></i>
+          </a>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body></html>

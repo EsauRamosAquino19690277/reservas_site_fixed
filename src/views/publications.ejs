@@ -1,0 +1,178 @@
+<!doctype html><html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= title %> · <%= site.title %></title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/styles.css" rel="stylesheet">
+
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/header.css">
+</head><body>
+<header class="header">
+  <div class="topbar py-2" style="background:<%= site.navbar_color || '#1b8f3a' %>;">
+    <div class="container d-flex align-items-center justify-content-between">
+      <a href="/" class="d-flex align-items-center text-white text-decoration-none">
+        <% if(site.logo_url){ %>
+          <img src="<%= site.logo_url %>" class="brand-logo me-2" alt="Logo">
+        <% } else { %>
+          <strong class="fs-4 text-white m-0"><%= site.title %></strong>
+        <% } %>
+      </a>
+      <div class="d-flex align-items-center gap-3">
+        <div class="d-none d-md-flex align-items-center gap-2">
+          <% if(site.facebook_url){ %><a class="text-white fs-5" href="<%= site.facebook_url %>" target="_blank" aria-label="Facebook"><i class="bi bi-facebook"></i></a><% } %>
+          <% if(site.instagram_url){ %><a class="text-white fs-5" href="<%= site.instagram_url %>" target="_blank" aria-label="Instagram"><i class="bi bi-instagram"></i></a><% } %>
+          <% if(site.tiktok_url){ %><a class="text-white fs-5" href="<%= site.tiktok_url %>" target="_blank" aria-label="TikTok"><i class="bi bi-tiktok"></i></a><% } %>
+          <% if(site.phone){ %><span class="text-white fw-bold ms-2"><%= site.phone %></span><% } %>
+        </div>
+        <a href="/actividades" class="btn reserve-btn">RESERVAR</a>
+        <button class="navbar-toggler d-inline d-md-none btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#mainMenu" aria-label="Abrir menú">
+          <i class="bi bi-list fs-2 text-white"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="menubar">
+    <div class="container">
+      <nav class="navbar navbar-expand-md navbar-light p-0">
+        <div class="collapse navbar-collapse" id="mainMenu">
+          <ul class="navbar-nav me-auto mb-2 mb-md-0">
+            <li class="nav-item"><a class="nav-link" href="/">HOME</a></li>
+            <li class="nav-item"><a class="nav-link" href="/actividades">ACTIVIDADES</a></li>
+            <li class="nav-item"><a class="nav-link" href="/experiencias">EXPERIENCIAS</a></li>
+            <li class="nav-item"><a class="nav-link" href="/historia">HISTORIA</a></li>
+            <li class="nav-item"><a class="nav-link" href="/contacto">¿CÓMO LLEGAR?</a></li>
+            <li class="nav-item"><a class="nav-link" href="/publicaciones">PROMOCIONES</a></li>
+            <li class="nav-item"><a class="nav-link" href="/mis-reservas">MIS RESERVAS</a></li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+  </div>
+</header>
+<main class="container my-4">
+  <h2>Publicidad</h2>
+  <div class="row g-3">
+    <% pubs.forEach(function(p){ 
+         // ----- Construimos una lista de medios (imágenes + video) -----
+         let mediaItems = [];
+
+         try {
+           if (p.hero_url && p.hero_url.trim().startsWith('[')) {
+             // Varias imágenes guardadas como JSON
+             JSON.parse(p.hero_url).forEach(function(src){
+               if (src) mediaItems.push({ type: 'image', src: src });
+             });
+           } else if (p.hero_url) {
+             // Una sola imagen
+             mediaItems.push({ type: 'image', src: p.hero_url });
+           }
+         } catch (e) {
+           if (p.hero_url) mediaItems.push({ type: 'image', src: p.hero_url });
+         }
+
+         if (p.video_url) {
+           mediaItems.push({ type: 'video', src: p.video_url });
+         }
+
+         const mediaCount = mediaItems.length;
+         const carouselId = 'pubMedia_' + p.id;
+    %>
+      <div class="col-md-4">
+        <div class="card h-100">
+
+          <% if (mediaCount > 0) { %>
+            <div id="<%= carouselId %>" class="carousel slide" data-bs-ride="carousel">
+              <div class="carousel-inner">
+                <% mediaItems.forEach(function(m, idx){ %>
+                  <div class="carousel-item <%= idx === 0 ? 'active' : '' %>">
+                    <% if (m.type === 'image') { %>
+                      <img src="<%= m.src %>" class="d-block w-100 img-fluid" alt="">
+                    <% } else { %>
+                      <video class="d-block w-100 img-fluid" controls preload="metadata">
+                        <source src="<%= m.src %>" type="video/mp4">
+                        Tu navegador no soporta video HTML5.
+                      </video>
+                    <% } %>
+                  </div>
+                <% }); %>
+              </div>
+
+              <% if (mediaCount > 1) { %>
+                <button class="carousel-control-prev" type="button"
+                        data-bs-target="#<%= carouselId %>" data-bs-slide="prev">
+                  <span class="carousel-control-prev-icon"></span>
+                  <span class="visually-hidden">Anterior</span>
+                </button>
+                <button class="carousel-control-next" type="button"
+                        data-bs-target="#<%= carouselId %>" data-bs-slide="next">
+                  <span class="carousel-control-next-icon"></span>
+                  <span class="visually-hidden">Siguiente</span>
+                </button>
+              <% } %>
+            </div>
+          <% } else { %>
+            <!-- Si no hay nada, imagen por defecto -->
+            <img src="/img/cascada1.jpg" class="card-img-top img-fluid" alt="">
+          <% } %>
+
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title"><%= p.title %></h5>
+            <p class="card-text"><%= p.body %></p>
+
+            <% if (p.is_linked && p.activity_id) { %>
+              <a href="/actividad/<%= p.activity_id %>" class="btn btn-success mt-auto">
+                <%= p.cta_label || 'Ver actividad' %>
+              </a>
+            <% } else if (!p.is_linked && p.cta_url) { %>
+              <a href="<%= p.cta_url %>" class="btn btn-outline-secondary mt-auto">
+                <%= p.cta_label || 'Más info' %>
+              </a>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+</main>
+
+<!-- Footer global -->
+<footer class="site-footer text-white mt-auto" style="background:<%= site.navbar_color || '#1b8f3a' %>;">
+  <div class="container py-3">
+    <div class="row g-3 align-items-center">
+      <div class="col-md-6 d-flex align-items-center gap-3">
+        <% if (site.logo_url) { %>
+          <a href="/" class="d-inline-block"><img src="<%= site.logo_url %>" alt="Logo" style="height:40px"></a>
+        <% } else { %>
+          <strong><%= site.title %></strong>
+        <% } %>
+        <div class="small">
+          <% if (site.phone) { %><strong>Tel:</strong> <%= site.phone %><% } %><br>
+          <span class="text-white-50">
+            <%= site.privacy_text || '© Todos los derechos reservados. Privacidad: tus datos se usan solo para gestionar reservas.' %>
+          </span>
+        </div>
+      </div>
+      <div class="col-md-6 text-md-end">
+        <% if (site.facebook_url) { %>
+          <a class="text-white fs-5 me-3" href="<%= site.facebook_url %>" target="_blank" aria-label="Facebook">
+            <i class="bi bi-facebook"></i>
+          </a>
+        <% } %>
+        <% if (site.instagram_url) { %>
+          <a class="text-white fs-5 me-3" href="<%= site.instagram_url %>" target="_blank" aria-label="Instagram">
+            <i class="bi bi-instagram"></i>
+          </a>
+        <% } %>
+        <% if (site.tiktok_url) { %>
+          <a class="text-white fs-5" href="<%= site.tiktok_url %>" target="_blank" aria-label="TikTok">
+            <i class="bi bi-tiktok"></i>
+          </a>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body></html>

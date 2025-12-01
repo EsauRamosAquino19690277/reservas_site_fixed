@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · <%= site.title %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/css/styles.css" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="/admin">
+      <% if (site.logo_url) { %>
+        <img src="<%= site.logo_url %>" class="brand-logo me-2" alt="Logo">
+      <% } else { %>
+        <strong><%= site.title %></strong>
+      <% } %>
+      <span class="badge bg-dark ms-2">Admin</span>
+    </a>
+  </div>
+</nav>
+
+<main class="container my-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-6">
+      <h3 class="mb-3">Check-in por código</h3>
+      <form class="mb-3" method="get" action="/admin/checkin">
+        <label class="form-label">Código de acceso</label>
+        <div class="input-group">
+          <input type="text" name="code" class="form-control"
+                 placeholder="ABCD-EFGH" value="<%= code || '' %>" required>
+          <button class="btn btn-primary">Buscar</button>
+        </div>
+        <div class="form-text">
+          Es el código que aparece en el correo de confirmación de pago.
+        </div>
+      </form>
+
+      <% if (error) { %>
+        <div class="alert alert-danger"><%= error %></div>
+      <% } %>
+
+      <% if (r) { %>
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title mb-1"><%= r.act_name %></h5>
+            <p class="mb-1">
+              <strong>Horario:</strong>
+              <%= dayjs(r.start_at).format('DD/MM/YYYY HH:mm') %>
+            </p>
+            <p class="mb-1">
+              <strong>Titular:</strong> <%= r.holder_name %><br>
+              <strong>Tel:</strong> <%= r.phone %><br>
+              <strong>Email:</strong> <%= r.email || '—' %>
+            </p>
+            <p class="mb-1">
+              <strong>Personas:</strong> <%= r.party_size %><br>
+              <strong>Monto:</strong> $ <%= (r.amount_cents/100).toFixed(2) %> MXN
+            </p>
+            <p class="mb-2">
+              <strong>Estado:</strong>
+              <span class="badge bg-<%= r.status==='paid'?'success':'secondary' %>"><%= r.status %></span>
+              <% if (r.checkin_code) { %>
+                <span class="ms-3"><strong>Código:</strong> <code><%= r.checkin_code %></code></span>
+              <% } %>
+            </p>
+
+            <% if (r.status === 'paid') { %>
+              <% if (r.checked_in_at) { %>
+                <div class="alert alert-info mb-2">
+                  Ya se registró check-in el
+                  <strong><%= dayjs(r.checked_in_at).format('DD/MM/YYYY HH:mm') %></strong>.
+                </div>
+              <% } else { %>
+                <form method="post" action="/admin/checkin/<%= r.id %>/marcar-usado">
+                  <input type="hidden" name="code" value="<%= code %>">
+                  <button class="btn btn-success w-100"
+                          onclick="return confirm('¿Confirmar la llegada de este grupo?');">
+                    Marcar check-in
+                  </button>
+                </form>
+              <% } %>
+            <% } %>
+          </div>
+        </div>
+      <% } %>
+
+      <div class="mt-3">
+        <a href="/admin" class="btn btn-outline-secondary btn-sm">Volver al panel</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

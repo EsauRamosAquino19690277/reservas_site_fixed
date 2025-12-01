@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · <%= site.title %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/css/styles.css" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="/admin/encuestas">
+      <% if (site.logo_url) { %>
+        <img src="<%= site.logo_url %>" class="brand-logo me-2" alt="Logo">
+      <% } else { %>
+        <strong><%= site.title %></strong>
+      <% } %>
+      <span class="badge bg-dark ms-2">Admin</span>
+    </a>
+  </div>
+</nav>
+
+<main class="container my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h3 class="mb-0"><%= survey.title %></h3>
+      <p class="text-muted mb-0">
+        Creada: <%= dayjs(survey.created_at).format('DD/MM/YYYY HH:mm') %>
+        <% if (survey.closed_at) { %> · Cerrada: <%= dayjs(survey.closed_at).format('DD/MM/YYYY HH:mm') %><% } %>
+      </p>
+      <p class="text-muted mb-1">
+        Estado:
+        <% if (survey.is_active) { %>
+          <span class="badge bg-success">Activa</span>
+        <% } else { %>
+          <span class="badge bg-secondary">Concluida</span>
+        <% } %>
+      </p>
+      <p class="mb-1"><strong>Respuestas totales:</strong> <%= totalResponses %></p>
+      <% if (survey.external_url) { %>
+        <p class="mb-1">
+          Esta encuesta redirige a un enlace externo:
+          <a href="<%= survey.external_url %>" target="_blank"><%= survey.external_url %></a>
+        </p>
+      <% } %>
+    </div>
+    <div class="d-flex flex-column align-items-end gap-2">
+      <a href="/admin/encuestas" class="btn btn-outline-secondary btn-sm">Volver a encuestas</a>
+      <a href="/encuestas/<%= survey.id %>" target="_blank" class="btn btn-outline-primary btn-sm">Ver como cliente</a>
+    </div>
+  </div>
+
+  <% if (!questions.length) { %>
+    <div class="alert alert-info">
+      Esta encuesta no tiene preguntas internas (probablemente usa sólo un enlace externo).
+    </div>
+  <% } %>
+
+  <% questions.forEach(function(q, idx){ %>
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">
+          Pregunta <%= idx+1 %>:
+          <span class="fw-normal"><%= q.text %></span>
+        </h5>
+        <p class="text-muted mb-2">
+          Tipo:
+          <%= q.kind === 'choice' ? 'Opción múltiple' : 'Abierta (texto)' %>
+        </p>
+
+        <% if (q.kind === 'choice') { %>
+          <% const opts = qOptionsMap[q.id] || []; %>
+          <% const counts = statsByQuestion[q.id] || {}; %>
+
+          <% if (!opts.length) { %>
+            <div class="alert alert-warning mb-0">
+              Esta pregunta es de opción múltiple pero no tiene opciones configuradas.
+            </div>
+          <% } else { %>
+            <table class="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th>Respuesta</th>
+                  <th>Veces elegida</th>
+                  <th>Porcentaje</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% opts.forEach(function(o){ 
+                     const c = counts[o.id] || 0;
+                     const pct = totalResponses ? (c * 100 / totalResponses) : 0;
+                %>
+                  <tr>
+                    <td><%= o.label %></td>
+                    <td><%= c %></td>
+                    <td><%= pct.toFixed(1) %> %</td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          <% } %>
+        <% } else { %>
+          <% const answers = openAnswers[q.id] || []; %>
+          <% if (!answers.length) { %>
+            <div class="alert alert-info mb-0">No hay respuestas para esta pregunta todavía.</div>
+          <% } else { %>
+            <ul class="list-group list-group-flush">
+              <% answers.forEach(function(a){ %>
+                <li class="list-group-item">
+                  <div class="small text-muted mb-1">
+                    <strong><%= a.name || 'Anónimo' %></strong>
+                    <% if (a.experience) { %> · <%= a.experience %><% } %>
+                    · <%= dayjs(a.created_at).format('DD/MM/YYYY HH:mm') %>
+                  </div>
+                  <div style="white-space:pre-wrap;"><%= a.text_value %></div>
+                </li>
+              <% }) %>
+            </ul>
+          <% } %>
+        <% } %>
+      </div>
+    </div>
+  <% }) %>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
