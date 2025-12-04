@@ -60,7 +60,7 @@ function sendPaymentConfirmationEmail(reservation, code) {
     ? dayjs(reservation.start_at).format('DD/MM/YYYY HH:mm')
     : '';
 
-  const html = `
+  const html = `S
     <p>Hola <strong>${reservation.holder_name || ''}</strong>,</p>
     <p>Tu pago ha sido <strong>confirmado</strong> para la siguiente reserva:</p>
     <ul>
