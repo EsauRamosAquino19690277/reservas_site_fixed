@@ -72,6 +72,36 @@
           <img src="<%= s.logo_url %>" alt="Logo" style="height:48px" class="mt-2">
         <% } %>
       </div>
+      <div class="card mt-4">
+  <div class="card-header">
+    Seguridad
+  </div>
+  <div class="card-body">
+    <div class="mb-3">
+      <label class="form-label">Nueva contraseña de administrador</label>
+      <input
+        type="password"
+        name="new_admin_password"
+        class="form-control"
+        autocomplete="new-password"
+      />
+      <div class="form-text">
+        Deja estos campos en blanco si no quieres cambiar la contraseña.
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Confirmar nueva contraseña</label>
+      <input
+        type="password"
+        name="confirm_admin_password"
+        class="form-control"
+        autocomplete="new-password"
+      />
+    </div>
+  </div>
+</div>
+
 
       <div class="col-12">
         <button class="btn btn-primary">Guardar</button>

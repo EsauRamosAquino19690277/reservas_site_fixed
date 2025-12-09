@@ -36,6 +36,18 @@ if (process.env.SMTP_HOST) {
   });
 }
 
+function ensureAdminPasswordColumn() {
+  try {
+    db.prepare('ALTER TABLE site_settings ADD COLUMN admin_password TEXT').run();
+  } catch (e) {
+    const msg = String(e.message || '');
+    // Si ya existe la columna, ignoramos ese error
+    if (!msg.includes('duplicate column name')) {
+      console.error('Error creando columna admin_password:', e);
+    }
+  }
+}
+
 // Código tipo "ABCD-EFGH" difícil de adivinar y único
 function generateCheckinCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0,1,O,I
@@ -60,7 +72,7 @@ function sendPaymentConfirmationEmail(reservation, code) {
     ? dayjs(reservation.start_at).format('DD/MM/YYYY HH:mm')
     : '';
 
-  const html = `S
+  const html = `
     <p>Hola <strong>${reservation.holder_name || ''}</strong>,</p>
     <p>Tu pago ha sido <strong>confirmado</strong> para la siguiente reserva:</p>
     <ul>
@@ -132,15 +144,51 @@ function requireAdmin(req, res, next) {
   return res.redirect('/admin/login');
 }
 
-router.get('/login', (req, res) => res.render('admin/login', { title: 'Admin - Login', error: null }));
+router.get('/login', (req, res) =>
+  res.render('admin/login', { title: 'Admin - Login', error: null })
+);
+
 router.post('/login', (req, res) => {
-  const pass = req.body.password || '';
-  if (pass === (process.env.ADMIN_PASSWORD || 'admin123')) {
+  // 1) Aseguramos que exista la columna admin_password
+  ensureAdminPasswordColumn();
+
+  // 2) Contraseña que escribió el usuario
+  const pass = (req.body.password || '').trim();
+
+  let dbPass = null;
+  try {
+    const row = db
+      .prepare('SELECT admin_password FROM site_settings WHERE id = ?')
+      .get('default');
+
+    if (row && row.admin_password) {
+      dbPass = String(row.admin_password).trim();
+    }
+  } catch (e) {
+    const msg = String(e.message || '');
+    // Si aún no existe la columna o la tabla, lo ignoramos
+    if (!msg.includes('no such column') && !msg.includes('no such table')) {
+      console.error('Error leyendo admin_password de site_settings:', e);
+    }
+  }
+
+  // Prioridad:
+  // 1) Si hay contraseña en BD, usar esa.
+  // 2) Si no, usar ADMIN_PASSWORD del .env
+  // 3) Si tampoco, usar 'admin123'
+  const expected = (dbPass || process.env.ADMIN_PASSWORD || 'admin123').trim();
+
+  if (pass === expected) {
     req.session.isAdmin = true;
     return res.redirect('/admin');
   }
-  res.render('admin/login', { title: 'Admin - Login', error: 'Clave incorrecta' });
+
+  res.render('admin/login', {
+    title: 'Admin - Login',
+    error: 'Clave incorrecta',
+  });
 });
+
 
 router.get('/logout', (req, res) => { req.session.destroy(() => res.redirect('/')); });
 
@@ -175,6 +223,9 @@ router.get('/', requireAdmin, (req, res) => {
 // ---- Ajustes del sitio ----
 // POST /ajustes
 router.post('/ajustes', requireAdmin, upload.single('logo_file'), (req, res) => {
+  // Nos aseguramos de que exista la columna admin_password
+  ensureAdminPasswordColumn();
+
   const {
     title = '',
     navbar_color = '',
@@ -184,50 +235,94 @@ router.post('/ajustes', requireAdmin, upload.single('logo_file'), (req, res) => 
     tiktok_url = '',
     privacy_text = '',
     address = '',
-    maps_embed_url = ''
+    maps_embed_url = '',
+    new_admin_password = '',
+    confirm_admin_password = ''
   } = req.body;
 
-  const logo_url = req.file ? ('/uploads/' + req.file.filename) : '';
-  const maps = (typeof maps_embed_url === 'string' &&
-                maps_embed_url.startsWith('https://www.google.com/maps/embed?'))
-               ? maps_embed_url : '';
+  const logo_url = req.file ? '/uploads/' + req.file.filename : '';
+  const maps =
+    typeof maps_embed_url === 'string' &&
+    maps_embed_url.startsWith('https://www.google.com/maps/embed?')
+      ? maps_embed_url
+      : '';
 
-  const row = db.prepare('SELECT id FROM site_settings WHERE id=?').get('default');
+  // Leer ajustes actuales (incluyendo contraseña si ya existe)
+  const current = db
+    .prepare('SELECT * FROM site_settings WHERE id = ?')
+    .get('default');
 
-  if (row) {
-    db.prepare(`
+  let finalAdminPass =
+    current && current.admin_password ? String(current.admin_password) : null;
+
+  // Si el admin escribió algo en los campos de contraseña...
+  if (new_admin_password || confirm_admin_password) {
+    if (new_admin_password === confirm_admin_password) {
+      // Solo si coinciden, cambiamos la contraseña
+      finalAdminPass = new_admin_password;
+    } else {
+      // Si NO coinciden, mantenemos la anterior
+      console.warn(
+        'Las contraseñas de admin no coinciden; se mantiene la anterior.'
+      );
+    }
+  }
+
+  if (current) {
+    db.prepare(
+      `
       UPDATE site_settings
-         SET title = ?,
-             navbar_color = ?,
-             phone = ?,
-             facebook_url = ?,
+         SET title         = ?,
+             navbar_color  = ?,
+             phone         = ?,
+             facebook_url  = ?,
              instagram_url = ?,
-             tiktok_url = ?,
-             privacy_text = ?,
-             address = ?,
+             tiktok_url    = ?,
+             privacy_text  = ?,
+             address       = ?,
              maps_embed_url = ?,
-             logo_url = COALESCE(NULLIF(?, ''), logo_url)
+             logo_url      = COALESCE(NULLIF(?, ''), logo_url),
+             admin_password = ?
        WHERE id = 'default'
-    `).run(
-      title, navbar_color, phone,
-      facebook_url, instagram_url, tiktok_url,
-      privacy_text, address, maps,
-      logo_url
+    `
+    ).run(
+      title,
+      navbar_color,
+      phone,
+      facebook_url,
+      instagram_url,
+      tiktok_url,
+      privacy_text,
+      address,
+      maps,
+      logo_url,
+      finalAdminPass
     );
   } else {
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO site_settings
-      (id, title, navbar_color, phone, facebook_url, instagram_url, tiktok_url, privacy_text, address, maps_embed_url, logo_url)
-      VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      title, navbar_color, phone,
-      facebook_url, instagram_url, tiktok_url,
-      privacy_text, address, maps, logo_url
+      (id, title, navbar_color, phone, facebook_url, instagram_url, tiktok_url, privacy_text, address, maps_embed_url, logo_url, admin_password)
+      VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+    ).run(
+      title,
+      navbar_color,
+      phone,
+      facebook_url,
+      instagram_url,
+      tiktok_url,
+      privacy_text,
+      address,
+      maps,
+      logo_url,
+      finalAdminPass
     );
   }
 
   res.redirect('/admin/ajustes');
 });
+
 
 router.get('/ajustes', requireAdmin, (req, res) => {
   const row = db.prepare('SELECT * FROM site_settings WHERE id=?').get('default') || {};
@@ -705,7 +800,6 @@ router.get('/encuestas/nueva', requireAdmin, (req, res) => {
 router.post('/encuestas/nueva', requireAdmin, (req, res) => {
   const { title, description, external_url } = req.body;
   const formData = { ...req.body };
-
   if (!title || !title.trim()) {
     return res.render('admin/survey_new', {
       title: 'Admin - Nueva encuesta',
@@ -713,10 +807,7 @@ router.post('/encuestas/nueva', requireAdmin, (req, res) => {
       form: formData
     });
   }
-
   const external = (external_url || '').trim();
-
-  // Si tiene URL externa, no usamos preguntas
   if (external) {
     const sid = id();
     db.prepare(`
@@ -730,15 +821,12 @@ router.post('/encuestas/nueva', requireAdmin, (req, res) => {
     );
     return res.redirect('/admin/encuestas');
   }
-
-  // Construir preguntas (máx 15, mín 5)
   const questions = [];
   for (let i = 1; i <= 15; i++) {
     const text = (req.body[`q_text_${i}`] || '').trim();
     if (!text) continue;
     const kind = (req.body[`q_type_${i}`] || 'choice') === 'open' ? 'open' : 'choice';
     const opts = [];
-
     if (kind === 'choice') {
       for (let j = 1; j <= 5; j++) {
         const label = (req.body[`q_opt_${i}_${j}`] || '').trim();
@@ -816,25 +904,21 @@ router.get('/encuestas/:id', requireAdmin, (req, res) => {
       FROM survey_form
      WHERE id = ?
   `).get(req.params.id);
-
   if (!survey) {
     return res.status(404).send('Encuesta no encontrada');
   }
-
   const totalRow = db.prepare(`
     SELECT COUNT(*) AS c
       FROM survey_response
      WHERE survey_id = ?
   `).get(survey.id);
   const totalResponses = totalRow ? totalRow.c : 0;
-
   const questions = db.prepare(`
     SELECT *
       FROM survey_question
      WHERE survey_id = ?
      ORDER BY position ASC
   `).all(survey.id);
-
   const qOptionsMap = {};
   questions.forEach(q => {
     if (q.kind === 'choice') {
@@ -846,8 +930,6 @@ router.get('/encuestas/:id', requireAdmin, (req, res) => {
       `).all(q.id);
     }
   });
-
-  // Para preguntas de opción: conteos por opción
   const statsByQuestion = {};
   questions.forEach(q => {
     if (q.kind === 'choice') {
@@ -1081,5 +1163,38 @@ router.use((err, req, res, next) => {
   }
   return next(err);
 });
+
+// === RUTA TEMPORAL PARA RESETEAR LA CONTRASEÑA DEL ADMIN ===
+/*router.get('/debug/reset-admin-pass-1234', (req, res) => {
+  try {
+    // Nos aseguramos de que exista la columna
+    ensureAdminPasswordColumn();
+
+    // Actualizamos (o creamos) los ajustes con contraseña 1234
+    const current = db
+      .prepare('SELECT id FROM site_settings WHERE id = ?')
+      .get('default');
+
+    if (current) {
+      db.prepare(`
+        UPDATE site_settings
+           SET admin_password = ?
+         WHERE id = 'default'
+      `).run('1234');
+    } else {
+      db.prepare(`
+        INSERT INTO site_settings
+          (id, title, navbar_color, phone, facebook_url, instagram_url,
+           tiktok_url, privacy_text, address, maps_embed_url, logo_url, admin_password)
+        VALUES ('default', '', '', '', '', '', '', '', '', '', '', ?)
+      `).run('1234');
+    }
+
+    res.send('Contraseña del admin reseteada a: 1234');
+  } catch (e) {
+    console.error('Error reseteando contraseña del admin:', e);
+    res.status(500).send('Error reseteando la contraseña, revisa la consola.');
+  }
+}); */
 
 export default router;
