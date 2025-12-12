@@ -5,7 +5,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dayjs from 'dayjs';
-import nodemailer from 'nodemailer';
+//import nodemailer from 'nodemailer';
 
 const MAX_FILE_SIZE = 80 * 1024 * 1024; // 80 MB
 
@@ -22,19 +22,6 @@ function getPage(req) {
   return raw;
 }
 
-// ---- Email de confirmación de pago ----
-// Transport de correo. Si no hay SMTP configurado, simplemente no envía nada.
-let mailTransport = null;
-if (process.env.SMTP_HOST) {
-  mailTransport = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === 'true', // true para 465, false para 587/25
-    auth: process.env.SMTP_USER
-      ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS || '' }
-      : undefined,
-  });
-}
 
 function ensureAdminPasswordColumn() {
   try {
@@ -62,11 +49,15 @@ function generateCheckinCode() {
   }
 }
 
-function sendPaymentConfirmationEmail(reservation, code) {
-  if (!mailTransport) return;          // no hay SMTP configurado
-  if (!reservation.email) return;      // la reserva no tiene correo
+async function sendPaymentConfirmationEmail(reservation, code) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn('No hay RESEND_API_KEY, no se envía correo de confirmación');
+    return;
+  }
+  if (!reservation.email) return;
 
-  const from = process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com';
+  const from = process.env.MAIL_FROM || 'notificaciones@celaguaje.mx';
   const amount = (reservation.amount_cents || 0) / 100;
   const dateStr = reservation.start_at
     ? dayjs(reservation.start_at).format('DD/MM/YYYY HH:mm')
@@ -88,28 +79,40 @@ function sendPaymentConfirmationEmail(reservation, code) {
     <p>El personal puede verificar este código directamente en el sistema de reservas.</p>
   `;
 
-  mailTransport.sendMail(
-    {
-      to: reservation.email,
-      from,
-      subject: `Confirmación de pago - Reserva ${reservation.id}`,
-      html,
-    },
-    (err) => {
-      if (err) {
-        console.error('Error al enviar correo de confirmación de pago', err);
-        return;
-      }
-      try {
-        db.prepare('UPDATE reservation SET paid_email_sent_at = CURRENT_TIMESTAMP WHERE id=?').run(
-          reservation.id,
-        );
-      } catch (e) {
-        console.error('Error guardando paid_email_sent_at', e);
-      }
-    },
-  );
+  try {
+    const resp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to: reservation.email,
+        subject: `Confirmación de pago - Reserva ${reservation.id}`,
+        html,
+      }),
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error('Error al enviar correo con Resend:', resp.status, text);
+      return;
+    }
+
+    // Si todo fue bien, marcamos que ya se envió el correo
+    try {
+      db.prepare(
+        'UPDATE reservation SET paid_email_sent_at = CURRENT_TIMESTAMP WHERE id=?',
+      ).run(reservation.id);
+    } catch (e) {
+      console.error('Error guardando paid_email_sent_at', e);
+    }
+  } catch (err) {
+    console.error('Error al llamar a Resend', err);
+  }
 }
+
 
 
 // ---- Subidas (imágenes / video) ----
@@ -144,7 +147,7 @@ function requireAdmin(req, res, next) {
   return res.redirect('/admin/login');
 }
 
-// ---- PRUEBA DE CORREO ----
+/* ---- PRUEBA DE CORREO ----
 router.get('/test-email', requireAdmin, async (req, res) => {
   if (!mailTransport) {
     return res.send('mailTransport NO está configurado. Revisa SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS en Railway.');
@@ -163,7 +166,7 @@ router.get('/test-email', requireAdmin, async (req, res) => {
     console.error('Error en /admin/test-email:', err);
     res.send('Error al enviar correo: ' + String(err));
   }
-});
+}); */
 
 
 router.get('/login', (req, res) =>
@@ -1189,7 +1192,6 @@ router.use((err, req, res, next) => {
 // === RUTA TEMPORAL PARA RESETEAR LA CONTRASEÑA DEL ADMIN ===
 /*router.get('/debug/reset-admin-pass-1234', (req, res) => {
   try {
-    // Nos aseguramos de que exista la columna
     ensureAdminPasswordColumn();
 
     // Actualizamos (o creamos) los ajustes con contraseña 1234
