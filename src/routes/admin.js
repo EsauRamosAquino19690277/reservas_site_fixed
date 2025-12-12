@@ -144,6 +144,28 @@ function requireAdmin(req, res, next) {
   return res.redirect('/admin/login');
 }
 
+// ---- PRUEBA DE CORREO ----
+router.get('/test-email', requireAdmin, async (req, res) => {
+  if (!mailTransport) {
+    return res.send('mailTransport NO está configurado. Revisa SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS en Railway.');
+  }
+
+  try {
+    await mailTransport.sendMail({
+      to: process.env.SMTP_USER, // te lo mandas a ti mismo
+      from: process.env.MAIL_FROM || process.env.SMTP_USER,
+      subject: 'Prueba de correo - CELA',
+      text: 'Este es un correo de prueba enviado desde el servidor en Railway.',
+    });
+
+    res.send('Correo de prueba ENVIADO (si Gmail lo aceptó). Revisa tu bandeja de entrada.');
+  } catch (err) {
+    console.error('Error en /admin/test-email:', err);
+    res.send('Error al enviar correo: ' + String(err));
+  }
+});
+
+
 router.get('/login', (req, res) =>
   res.render('admin/login', { title: 'Admin - Login', error: null })
 );
